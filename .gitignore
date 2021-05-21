@@ -3,4 +3,8 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+<<<<<<< HEAD
+=======
+.vscode/settings.json
+>>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1
 .DS_Store
