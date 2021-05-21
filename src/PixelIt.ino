@@ -1798,7 +1798,11 @@ void setup()
 	{
 		hostname = "PixelIt";
 	}
+	#if defined(ESP8226)
 	WiFi.hostname(hostname);
+	#elif defined(ESP32)
+	WiFi.setHostname((char*)&hostname);
+	#endif
 
 	// Set config save notify callback
 	wifiManager.setSaveConfigCallback(SaveConfigCallback);
