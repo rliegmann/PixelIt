@@ -1,22 +1,4 @@
 #if defined(ESP8266)
-<<<<<<< HEAD:src/PixelIt.ino
-#pragma message ("ESP8266 stuff happening!")
-#include <ESP8266WebServer.h>
-#include <ESP8266HTTPUpdateServer.h>
-#include <ESP8266WiFi.h>
-
-#elif defined(ESP32)
-#pragma message ("ESP32 stuff happening!")
-#include <WebServer.h>
-#include <HTTPUpdateServer.h>
-#include <WiFi.h>
-#else
-#error "This ain't a ESP8266 or ESP32, dumbo!"
-#endif
-
-
-#include <WebSocketsServer.h>    // https://github.com/Links2004/arduinoWebSockets
-=======
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266WiFi.h>
@@ -31,7 +13,6 @@
 
 #include <Arduino.h>
 #include <WebSocketsServer.h>
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
 #include <WiFiManager.h>
@@ -46,12 +27,7 @@
 #include <DFPlayerMini_Fast.h>
 #include <SoftwareSerial.h>
 #include "ColorConverterLib.h"
-<<<<<<< HEAD:src/PixelIt.ino
-
-// PixelIT Stuff 
-=======
 // PixelIT Stuff
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 #include "PixelItFont.h"
 #include "Webinterface.h"
 #include "Tools.h"
@@ -77,20 +53,11 @@ const int MQTT_RECONNECT_INTERVAL = 5000;
 #define LDR_PHOTOCELL LightDependentResistor::GL5516
 
 //// Matrix Config
-<<<<<<< HEAD:src/PixelIt.ino
-#if defined (ESP8266)
-	#define MATRIX_PIN D2
-#elif defined (ESP32)
-	#define MATRIX_PIN 27
-#endif
-
-=======
 #if defined(ESP8266)
 #define MATRIX_PIN D2
 #elif defined(ESP32)
 #define MATRIX_PIN 27
 #endif
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 
 #define NUMMATRIX (32 * 8)
 CRGB leds[NUMMATRIX];
@@ -102,18 +69,6 @@ WiFiClient espClient;
 WiFiUDP udp;
 PubSubClient client(espClient);
 WiFiManager wifiManager;
-<<<<<<< HEAD:src/PixelIt.ino
-#if defined (ESP8266)
-	ESP8266WebServer server(80);
-	ESP8266HTTPUpdateServer httpUpdater;
-#elif defined (ESP32)
-	WebServer server(80);
-	HTTPUpdateServer httpUpdater;
-#endif
-
-WebSocketsServer webSocket = WebSocketsServer(81);
-LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL);
-=======
 #if defined(ESP8266)
 ESP8266WebServer server(80);
 ESP8266HTTPUpdateServer httpUpdater;
@@ -124,7 +79,6 @@ HTTPUpdateServer httpUpdater;
 
 WebSocketsServer webSocket = WebSocketsServer(81);
 LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL, 10);
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 DHTesp dht;
 DFPlayerMini_Fast mp3Player;
 SoftwareSerial softSerial(D7, D8); // RX | TX
@@ -244,13 +198,8 @@ void SaveConfig()
 		json["clockTimeZone"] = clockTimeZone;
 
 		String clockColorHex;
-<<<<<<< HEAD:src/PixelIt.ino
-		ColorConverter::RgbToHex(clockColorR, clockColorG, clockColorB, clockColorHex);		
-		json["clockColor"] = "#"+clockColorHex;
-=======
 		ColorConverter::RgbToHex(clockColorR, clockColorG, clockColorB, clockColorHex);
 		json["clockColor"] = "#" + clockColorHex;
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 
 		json["clockSwitchAktiv"] = clockSwitchAktiv;
 		json["clockSwitchSec"] = clockSwitchSec;
@@ -297,106 +246,7 @@ void LoadConfig()
 
 			if (json.success())
 			{
-<<<<<<< HEAD:src/PixelIt.ino
-				if (json.containsKey("matrixtBrightness"))
-				{
-					matrixtBrightness = json["matrixtBrightness"];
-				}
-
-				if (json.containsKey("matrixType"))
-				{
-					matrixType = json["matrixType"];
-				}
-
-				if (json.containsKey("matrixTempCorrection"))
-				{
-					matrixTempCorrection = json["matrixTempCorrection"].asString();
-				}
-
-				if (json.containsKey("ntpServer"))
-				{
-					ntpServer = json["ntpServer"].asString();
-				}
-
-				if (json.containsKey("clockTimeZone"))
-				{
-					clockTimeZone = json["clockTimeZone"];
-				}
-
-				if (json.containsKey("clockColor"))
-				{
-					uint8_t r ;
-					uint8_t g ;
-					uint8_t b ;
-					r = clockColorR;
-					g = clockColorG;
-					b = clockColorB;
-					String hex = json["clockColor"];
-
-					ColorConverter::HexToRgb(hex.substring(1, 7), r, g, b);	
-					clockColorR = r;
-					clockColorG = g;
-					clockColorB = b;				
-				}
-
-				if (json.containsKey("clockSwitchAktiv"))
-				{
-					clockSwitchAktiv = json["clockSwitchAktiv"];
-				}
-
-				if (json.containsKey("clockSwitchSec"))
-				{
-					clockSwitchSec = json["clockSwitchSec"];
-				}
-
-				if(json.containsKey("clockWithSeconds"))
-				{
-					clockWithSeconds = json["clockWithSeconds"];
-				}
-
-				if (json.containsKey("scrollTextDefaultDelay"))
-				{
-					scrollTextDefaultDelay = json["scrollTextDefaultDelay"];
-				}
-
-				if (json.containsKey("bootScreenAktiv"))
-				{
-					bootScreenAktiv = json["bootScreenAktiv"];
-				}
-
-				if (json.containsKey("mqttAktiv"))
-				{
-					mqttAktiv = json["mqttAktiv"];
-				}
-
-				if (json.containsKey("mqttUser"))
-				{
-					mqttUser = json["mqttUser"].asString();
-				}
-
-				if (json.containsKey("mqttPassword"))
-				{
-					mqttPassword = json["mqttPassword"].asString();
-				}
-
-				if (json.containsKey("mqttServer"))
-				{
-					mqttServer = json["mqttServer"].asString();
-				}
-
-				if (json.containsKey("mqttMasterTopic"))
-				{
-					mqttMasterTopic = json["mqttMasterTopic"].asString();
-				}
-
-				if (json.containsKey("mqttPort"))
-				{
-					mqttPort = json["mqttPort"];
-				}
-
-=======
 				SetConfigVaribles(json);
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 				Log("LoadConfig", "Loaded");
 			}
 		}
@@ -682,14 +532,10 @@ void HandleGetMatrixInfo()
 }
 
 void Handle_factoryreset()
-<<<<<<< HEAD:src/PixelIt.ino
-{	
-=======
 {
 #if defined(ESP8266)
 	File configFile = LittleFS.open("/config.json", "w");
 #elif defined(ESP32)
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 	File configFile = SPIFFS.open("/config.json", "w");
 #endif
 	if (!configFile)
@@ -1199,33 +1045,18 @@ String GetLuxSensor()
 String GetMatrixInfo()
 {
 	DynamicJsonBuffer jsonBuffer;
-<<<<<<< HEAD:src/PixelIt.ino
-	JsonObject& root = jsonBuffer.createObject();
-	
-	root["pixelitVersion"] = version;
-	//root["sketchSize"] = ESP.getSketchSize();   Vorrüber gehend ausgeblockt, da bei ESP32 ein lag verursacht wird
-=======
 	JsonObject &root = jsonBuffer.createObject();
 
 	root["pixelitVersion"] = VERSION;
 	//// Matrix Config
 	root["note"] = note;
 	root["hostname"] = hostname;
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 	root["freeSketchSpace"] = ESP.getFreeSketchSpace();
 	root["wifiRSSI"] = WiFi.RSSI();
 	root["wifiQuality"] = GetRSSIasQuality(WiFi.RSSI());
 	root["wifiSSID"] = WiFi.SSID();
 	root["ipAddress"] = WiFi.localIP().toString();
 	root["freeHeap"] = ESP.getFreeHeap();
-<<<<<<< HEAD:src/PixelIt.ino
-	
-	#if defined(ESP8266)
-		root["chipID"] = ESP.getChipId();
-	#elif defined(ESP32)
-		root["chipID"] = uint64ToString(ESP.getEfuseMac());
-	#endif
-=======
 
 #if defined(ESP8266)
 	root["sketchSize"] = ESP.getSketchSize();
@@ -1233,7 +1064,6 @@ String GetMatrixInfo()
 #elif defined(ESP32)
 	root["chipID"] = uint64ToString(ESP.getEfuseMac());
 #endif
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 
 	root["cpuFreqMHz"] = ESP.getCpuFreqMHz();
 	root["sleepMode"] = sleepMode;
@@ -1934,11 +1764,7 @@ void setup()
 
 	// Init LightSensor
 	photocell.setPhotocellPositionOnGround(false);
-<<<<<<< HEAD:src/PixelIt.ino
-	ColorTemperature userColorTemp = GetUserColorTemp();;
-=======
 	ColorTemperature userColorTemp = GetUserColorTemp();
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 	LEDColorCorrection userLEDCorrection = GetUserColorCorrection();
 
 	// Matrix Color Correction
@@ -2029,11 +1855,7 @@ void setup()
 	{
 		client.setServer(mqttServer.c_str(), mqttPort);
 		client.setCallback(callback);
-<<<<<<< HEAD:src/PixelIt.ino
-		client.setBufferSize(4000);
-=======
 		client.setBufferSize(8000);
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 		Log(F("Setup"), F("MQTT started"));
 	}
 
@@ -2170,13 +1992,8 @@ void SendMatrixInfo(bool force)
 			}
 		}
 	}
-<<<<<<< HEAD:src/PixelIt.ino
-	
-	OldGetMatrixInfo = matrixInfo;
-=======
 
 	oldGetMatrixInfo = matrixInfo;
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/PixelIt.ino
 }
 
 void SendLDR(bool force)

@@ -189,19 +189,11 @@ const char configPage[] PROGMEM = R"=====(
     </div>
      <div class="custom-control custom-switch">
         <input type="checkbox" class="custom-control-input" id="clockWithSeconds">
-<<<<<<< HEAD:src/Webinterface.h
-        <label class="custom-control-label" for="clockWithSeconds">Clock witch sek</label>
-    </div>
-    <div class="custom-control custom-switch">
-        <input type="checkbox" class="custom-control-input" id="clockSwitchAktiv">
-        <label class="custom-control-label" for="clockSwitchAktiv">Switch clock/date aktiv</label>
-=======
         <label class="custom-control-label" for="clockWithSeconds">Clock with sek</label>
     </div>
     <div class="custom-control custom-switch">
         <input type="checkbox" class="custom-control-input" id="clockSwitchAktiv">
         <label class="custom-control-label" for="clockSwitchAktiv">Switch clock/date active</label>
->>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/Webinterface.h
     </div>
     <div class="form-group">Switch clock/date time</label>
         <input type="number" class="form-control" id="clockSwitchSec">
