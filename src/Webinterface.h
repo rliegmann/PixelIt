@@ -1,37 +1,29 @@
 const char mainPage[] PROGMEM = R"=====(
-<!doctype html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" href="https://cdn.dietru.de/bootstrap.min.css">
-    <link href="https://cdn.dietru.de/dashboard.css" rel="stylesheet">
-    <script src="https://cdn.dietru.de/jquery-3.3.1.min.js"> </script>
-    <script src="https://cdn.dietru.de/pixelit.js"> </script>
-    <style>
-        textarea {
-            font-size: 12px !important;
-        }
-    </style>
-    <title>PixelIt the Matrix Display</title>
-</head>
-
-<body>
-    <nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0">
-        <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#"><b>PixelIt</b> the Matrix Display</a>
-        <ul class="navbar-nav px-3">
-            <li class="nav-item text-nowrap">
-                <div class="text-center nav-link">
-                    Connection: <span id="connectionStatus" class="text-danger">Offline</span>
-                </div>
-            </li>
-        </ul>
-    </nav>
-    <div class="container-fluid">
-        <div class="row">
-            <nav class="col-md-2 d-none d-md-block bg-light sidebar">
-                <div class="sidebar-sticky">
+    <!doctype html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="stylesheet" href="https://o0shojo0o.github.io/PixelIt/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://o0shojo0o.github.io/PixelIt/css/dashboard.css">
+        <script src="https://o0shojo0o.github.io/PixelIt/js/jquery-3.3.1.min.js"> </script>
+        <script src="https://o0shojo0o.github.io/PixelIt/js/pixelit.js"> </script>
+        <title>PixelIt the Matrix Display</title>
+    </head>
+    <body>
+        <nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0">
+            <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#"><b>PixelIt</b> the Matrix Display</a>
+            <ul class="navbar-nav px-3">
+                <li class="nav-item text-nowrap">
+                    <div class="text-center nav-link">
+                        Connection: <span id="connectionStatus" class="text-danger">Offline</span>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+        <div class="container-fluid">
+            <div class="row">            
+                <nav class="col-md-2 d-none d-md-block bg-light sidebar">                 
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link active" id="dash" onclick='ChangePage("dash")' href="#">
@@ -49,7 +41,7 @@ const char mainPage[] PROGMEM = R"=====(
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/update">
+                            <a class="nav-link" onclick='ChangePage("fwfsupdate")' href="#">
                                 <span data-feather="upload"></span> Update
                             </a>
                         </li>
@@ -74,28 +66,31 @@ const char mainPage[] PROGMEM = R"=====(
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="https://wiki.dietru.de/books/pixel-it" target="blank">
-                                <span data-feather="book-open"></span> Wiki
+                            <a class="nav-link" href="https://docs.bastelbunker.de/pixelit/" target="blank">
+                                <span data-feather="book-open"></span> Documentation
                             </a>
                         </li>
-                    </ul>
-                </div>
-            </nav>
-            <div class="offset-md-2 col-md-10 row" id="mainContent">
-                <div class="row col-md-12" id="mainRefresh">
-
+                        <li class="nav-item">
+                            <a class="nav-link" href="https://github.com/o0shojo0o/PixelIt" target="blank">
+                                <span data-feather="github"></span> GitHub
+                            </a>
+                        </li>
+                    </ul>     
+                </nav>           
+                <div class="offset-md-2 col-md-10 row" id="mainContent">
+                    <div class="row col-md-12" id="mainRefresh">
+    
+                    </div>
                 </div>
             </div>
-        </div>
-        <script src="https://cdn.dietru.de/bootstrap.min.js">
-        </script>
-        <script src="https://cdn.dietru.de/feather.min.js"></script>
-        <script>
-            feather.replace()
-        </script>
-</body>
-
-</html>
+            <script src="https://o0shojo0o.github.io/PixelIt/js/bootstrap.min.js">
+            </script>
+            <script src="https://o0shojo0o.github.io/PixelIt/js/feather.min.js"></script>
+            <script>
+                feather.replace()
+            </script>
+        </body>
+    </html>
 )=====";
 
 const char configPage[] PROGMEM = R"=====(
@@ -110,6 +105,7 @@ const char configPage[] PROGMEM = R"=====(
         <select type="select" class="form-control" id="matrixType">
             <option value="1">Type 1</option>
             <option value="2">Type 2</option>
+            <option value="3">Type 3</option>
         </select>
     </div>
     <div class="form-group">
@@ -138,9 +134,41 @@ const char configPage[] PROGMEM = R"=====(
             <option value="highpressuresodium">HighPressureSodium</option>
         </select>
     </div>
+    <div class="form-group">
+        <label for="hostname">Hostname</label>
+        <input type="text" class="form-control" id="hostname">
+    </div>
+    <div class="form-group">
+        <label for="note">Note</label>
+        <input type="text" class="form-control" id="note">
+    </div>
     <div class="custom-control custom-switch">
         <input type="checkbox" class="custom-control-input" id="bootScreenAktiv">
-        <label class="custom-control-label" for="bootScreenAktiv">Bootsceen aktiv</label>
+        <label class="custom-control-label" for="bootScreenAktiv">Bootsceen active</label>
+    </div>
+    <br>
+    <h2 class="text-center">Auto brightness</h2>
+    <hr>
+    <div class="form-inline">              
+        <label for="mbaDimMin" class="col-md-5">Min bright</label> 
+        <label for="mbaDimMax" class="col-md-6 offset-md-1">Max bright</label>
+    </div>
+    <div class="form-inline"> 
+        <input type="number" class="form-control col-md-5 text-center" id="mbaDimMin" value="20" step="1" min="0">            
+        <input type="number" class="form-control col-md-5 offset-md-2 text-center" id="mbaDimMax" value="255" step="1" min="0" max="255">
+    </div>
+    <div class="form-inline">              
+        <label for="mbaLuxMin" class="col-md-5">From lux</label> 
+        <label for="mbaLuxMax" class="col-md-5 offset-md-2">To lux</label>
+    </div>
+    <div class="form-inline"> 
+        <input type="number" class="form-control col-md-5 text-center" id="mbaLuxMin" value="0" step="1" min="0">            
+        <input type="number" class="form-control col-md-5 offset-md-2 text-center" id="mbaLuxMax" value="400" step="1" min="0">
+    </div> 
+    <br>
+    <div class="custom-control custom-switch">
+        <input type="checkbox" class="custom-control-input" id="matrixBrightnessAutomatic">
+        <label class="custom-control-label" for="matrixBrightnessAutomatic">Auto brightness active</label>
     </div>
 </div>
 
@@ -161,11 +189,19 @@ const char configPage[] PROGMEM = R"=====(
     </div>
      <div class="custom-control custom-switch">
         <input type="checkbox" class="custom-control-input" id="clockWithSeconds">
+<<<<<<< HEAD:src/Webinterface.h
         <label class="custom-control-label" for="clockWithSeconds">Clock witch sek</label>
     </div>
     <div class="custom-control custom-switch">
         <input type="checkbox" class="custom-control-input" id="clockSwitchAktiv">
         <label class="custom-control-label" for="clockSwitchAktiv">Switch clock/date aktiv</label>
+=======
+        <label class="custom-control-label" for="clockWithSeconds">Clock with sek</label>
+    </div>
+    <div class="custom-control custom-switch">
+        <input type="checkbox" class="custom-control-input" id="clockSwitchAktiv">
+        <label class="custom-control-label" for="clockSwitchAktiv">Switch clock/date active</label>
+>>>>>>> c2dee323b68ca8805ffd803299455b14dbe4b7f1:src/Webinterface.h
     </div>
     <div class="form-group">Switch clock/date time</label>
         <input type="number" class="form-control" id="clockSwitchSec">
@@ -177,7 +213,7 @@ const char configPage[] PROGMEM = R"=====(
     <hr>
     <div class="form-group">
         <label for="matrixtBrightness">Matrix Brightness</label>
-        <input type="number" class="form-control" id="matrixtBrightness">
+        <input type="number" class="form-control" id="matrixBrightness">
     </div>
     <div class="form-group">
         <label for="scrollTextDefaultDelay">ScrollText Delay</label>
@@ -190,8 +226,7 @@ const char configPage[] PROGMEM = R"=====(
     <hr>
     <div class="form-group">
         <label for="mqttServer">Server</label>
-        <input type="text" class="form-control" id="mqttServer" minlength="7" maxlength="15"
-            pattern="^((\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.){3}(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$">
+        <input type="text" class="form-control" id="mqttServer" placeholder="IP or Hostname">
     </div>
     <div class="form-group">
         <label for="mqttPort">Port</label>
@@ -211,7 +246,7 @@ const char configPage[] PROGMEM = R"=====(
     </div>
     <div class="custom-control custom-switch">
         <input type="checkbox" class="custom-control-input" id="mqttAktiv">
-        <label class="custom-control-label" for="mqttAktiv">MQTT aktiv</label>
+        <label class="custom-control-label" for="mqttAktiv">MQTT active</label>
     </div>
 </div>
 <div class="col-md-12 text-center">
@@ -242,7 +277,6 @@ const char configPage[] PROGMEM = R"=====(
 </script>
 )=====";
 
-
 const char dashPage[] PROGMEM = R"=====(
 <script>
     connectionStart();
@@ -256,6 +290,14 @@ const char dashPage[] PROGMEM = R"=====(
                 <tr>
                     <td class="font-weight-bold">PixelIt Version:</td>
                     <td id="pixelitVersion">Loading...</td>
+                </tr>
+                <tr>
+                    <td class="font-weight-bold">Hostname:</td>
+                    <td id="hostname">Loading...</td>
+                </tr>
+                <tr>
+                    <td class="font-weight-bold">Note:</td>
+                    <td id="note">Loading...</td>
                 </tr>
                 <tr>
                     <td class="font-weight-bold">Sketch Size:</td>
@@ -290,7 +332,7 @@ const char dashPage[] PROGMEM = R"=====(
                     <td id="chipID">Loading...</td>
                 </tr>
                 <tr>
-                    <td class="font-weight-bold">CPU Freq. in MHz:</td>
+                    <td class="font-weight-bold">CPU Freq.:</td>
                     <td id="cpuFreqMHz">Loading...</td>
                 </tr>
                 <tr>
@@ -328,8 +370,24 @@ const char dashPage[] PROGMEM = R"=====(
     <hr>
     <textarea class="form-control" id="log" rows="17" wrap="off" disabled style="font: 60"></textarea>
 </div>
+<div class="modal" tabindex="-1" role="dialog" id="changelog_modal">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title" id="changelog_modal_title"></h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body" id="changelog_modal_body">    
+        </div>
+        <div class="modal-footer">
+            <a href="" target="_blank" id="changelog_modal_button" type="button" class="btn btn-primary">Got to download</a>
+          </div>
+      </div>
+    </div>
+  </div>
 )=====";
-
 
 const char testAreaPage[] PROGMEM = R"=====(
 <script>
@@ -389,5 +447,31 @@ const char testAreaPage[] PROGMEM = R"=====(
 <script>
     feather.replace()
 </script>
-</script>
+)=====";
+
+const char updatePage[] PROGMEM = R"=====(
+<div class="col-md-6">
+    <h2 class="text-center">Firmware Update</h2>
+    <hr>
+    <form method='POST' action='/update' enctype='multipart/form-data' class="text-center">
+        <input type='file' accept='.bin,.bin.gz' name='firmware' id="firmware">
+        <br />
+        <br />
+        <div class="col-md-12">
+            <button type="submit" class="btn btn-outline-primary"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-send"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Update Firmware</button>
+        </div>
+    </form>
+</div>
+<div class="col-md-6">
+<h2 class="text-center">Filesystem Update</h2>
+    <hr>
+    <form method='POST' action='/update' enctype='multipart/form-data' class="text-center">
+        <input type='file' accept='.bin,.bin.gz' name='filesystem'>
+        <br />
+        <br />
+        <div class="col-md-12 text-center">
+            <button type="submit" class="btn btn-outline-primary"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-send"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Update Filesystem</button>
+        </div>
+    </form>
+</div>
 )=====";
