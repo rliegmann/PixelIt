@@ -12,29 +12,46 @@
 #endif
 
 #include <Arduino.h>
+// BME Sensor
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+// WiFi & Web
 #include <WebSocketsServer.h>
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
 #include <WiFiManager.h>
+// MQTT
 #include <PubSubClient.h>
-#include <TimeLib.h>
-#include <ArduinoJson.h>
+// Matrix
+#include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <FastLED.h>
 #include <FastLED_NeoMatrix.h>
+// Misc
 #include <LightDependentResistor.h>
 #include <DHTesp.h>
 #include <DFPlayerMini_Fast.h>
 #include <SoftwareSerial.h>
 #include "ColorConverterLib.h"
+#include <TimeLib.h>
+#include <ArduinoJson.h>
 // PixelIT Stuff
 #include "PixelItFont.h"
 #include "Webinterface.h"
 #include "Tools.h"
-#include <Wire.h>
 
 void FadeOut(int = 10, int = 0);
 void FadeIn(int = 10, int = 0);
+
+class SetGPIO
+{
+public:
+	int gpio;
+	ulong resetMillis;
+};
+#define SET_GPIO_SIZE 4
+SetGPIO setGPIOReset[SET_GPIO_SIZE];
 
 //// MQTT Config
 bool mqttAktiv = false;
@@ -52,17 +69,30 @@ const int MQTT_RECONNECT_INTERVAL = 5000;
 #define LDR_PIN A0
 #define LDR_PHOTOCELL LightDependentResistor::GL5516
 
-//// Matrix Config
+//// GPIO Config
 #if defined(ESP8266)
 #define MATRIX_PIN D2
+#define I2C_SDA D3
+#define I2C_SCL D1
+#define DHT_PIN D1
 #elif defined(ESP32)
 #define MATRIX_PIN 27
+#define I2C_SDA D3
+#define I2C_SCL D1
+#define DHT_PIN D1
 #endif
 
 #define NUMMATRIX (32 * 8)
 CRGB leds[NUMMATRIX];
 
-#define VERSION "0.3.4"
+#define VERSION "0.3.6"
+
+#if defined(ESP32)
+TwoWire twowire(BME280_ADDRESS_ALTERNATE);
+#else
+TwoWire twowire;
+#endif
+Adafruit_BME280 bme;
 
 FastLED_NeoMatrix *matrix;
 WiFiClient espClient;
@@ -82,6 +112,23 @@ LightDependentResistor photocell(LDR_PIN, LDR_RESISTOR, LDR_PHOTOCELL, 10);
 DHTesp dht;
 DFPlayerMini_Fast mp3Player;
 SoftwareSerial softSerial(D7, D8); // RX | TX
+
+// TempSensor
+enum TempSensor
+{
+	TempSensor_None,
+	TempSensor_BME280,
+	TempSensor_DHT,
+};
+TempSensor tempSensor = TempSensor_None;
+
+// TemperatureUnit
+enum TemperatureUnit
+{
+	TemperatureUnit_Celsius,
+	TemperatureUnit_Fahrenheit
+};
+TemperatureUnit temperatureUnit = TemperatureUnit_Celsius;
 
 // Matrix Vars
 int currentMatrixBrightness = 127;
@@ -104,7 +151,6 @@ bool shouldSaveConfig = false;
 uint16_t bmpArray[64];
 
 // Timerserver Vars
-IPAddress timeServerIP;
 String ntpServer = "de.pool.ntp.org";
 int ntpRetryCounter = 0;
 #define NTP_MAX_RETRYS 3
@@ -147,11 +193,11 @@ int animateBMPFrameCount = 0;
 
 // Sensors Vars
 uint sendLuxPrevMillis = 0;
-uint sendDHTPrevMillis = 0;
+uint sendSensorPrevMillis = 0;
 uint sendInfoPrevMillis = 0;
 String oldGetMatrixInfo;
 String oldGetLuxSensor;
-String oldGetDHTSensor;
+String oldGetSensor;
 float currentLux = 0.0f;
 
 // MP3Player Vars
@@ -184,6 +230,7 @@ void SaveConfig()
 		DynamicJsonBuffer jsonBuffer;
 		JsonObject &json = jsonBuffer.createObject();
 
+		json["temperatureUnit"] = static_cast<int>(temperatureUnit);
 		json["matrixBrightnessAutomatic"] = matrixBrightnessAutomatic;
 		json["mbaDimMin"] = mbaDimMin;
 		json["mbaDimMax"] = mbaDimMax;
@@ -268,6 +315,11 @@ void SetConfig(JsonObject &json)
 
 void SetConfigVaribles(JsonObject &json)
 {
+	if (json.containsKey("temperatureUnit"))
+	{
+		temperatureUnit = static_cast<TemperatureUnit>(json["temperatureUnit"].as<int>());
+	}
+
 	if (json.containsKey("matrixBrightnessAutomatic"))
 	{
 		matrixBrightnessAutomatic = json["matrixBrightnessAutomatic"];
@@ -519,10 +571,22 @@ void HandleGetLuxSensor()
 	server.send(200, "application/json", GetLuxSensor());
 }
 
-void HandleGetDHTSensor()
+void HandelGetBrightness()
 {
 	server.sendHeader("Connection", "close");
-	server.send(200, "application/json", GetDHTSensor());
+	server.send(200, "application/json", GetBrightness());
+}
+
+void HandleGetDHTSensor() // Legancy
+{
+	server.sendHeader("Connection", "close");
+	server.send(200, "application/json", GetSensor());
+}
+
+void HandleGetSensor()
+{
+	server.sendHeader("Connection", "close");
+	server.send(200, "application/json", GetSensor());
 }
 
 void HandleGetMatrixInfo()
@@ -608,7 +672,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
 		// send message to client
 		SendMatrixInfo(true);
 		SendLDR(true);
-		SendDHT(true);
+		SendSensor(true);
 		SendConfig();
 		break;
 	}
@@ -663,6 +727,62 @@ void CreateFrames(JsonObject &json)
 	{
 		logMessage += F("Brightness Control, ");
 		currentMatrixBrightness = json["brightness"];
+	}
+
+	// Set GPIO
+	if (json.containsKey("setGpio"))
+	{
+		logMessage += F("Set Gpio, ");
+		if (json["setGpio"]["set"].is<bool>() && json["setGpio"]["gpio"].is<uint8_t>())
+		{
+			uint8_t gpio = json["setGpio"]["gpio"].as<uint8_t>();
+
+			// If the GPIO is already present in the array?
+			// has been found, this is to be replaced.
+			if (json["setGpio"]["duration"].is<ulong>())
+			{
+				int arrayIndex = -1;
+				for (int i = 0; i < SET_GPIO_SIZE; i++)
+				{
+					if (setGPIOReset[i].gpio == gpio)
+					{
+						arrayIndex = i;
+						break;
+					}
+				}
+				// Search free place in array.
+				if (arrayIndex == -1)
+				{
+					for (int i = 0; i < SET_GPIO_SIZE; i++)
+					{
+						if (setGPIOReset[i].gpio == -1)
+						{
+							arrayIndex = i;
+							break;
+						}
+					}
+				}
+
+				if (arrayIndex == -1)
+				{
+					Log(F("SetGPIO"), F("Error: no free place in array found!"));
+				}
+				else
+				{
+					// Save data in array for the reset.
+					setGPIOReset[arrayIndex].gpio = gpio;
+					setGPIOReset[arrayIndex].resetMillis = (millis() + json["setGpio"]["duration"].as<ulong>());
+					Log(F("SetGPIO"), "Pos: " + String(arrayIndex) + ", GPIO: " + String(gpio) + ", Duration: " + String(json["setGpio"]["duration"].as<char *>()) + ", Value: " + json["setGpio"]["set"].as<char *>());
+				}
+			}
+			else
+			{
+				Log(F("SetGPIO"), "GPIO: " + String(gpio) + ", Value: " + json["setGpio"]["set"].as<char *>());
+			}
+			// Set GPIO
+			pinMode(gpio, OUTPUT);
+			digitalWrite(gpio, json["setGpio"]["set"].as<bool>());
+		}
 	}
 
 	// Sound
@@ -1005,24 +1125,40 @@ String GetConfig()
 	return "";
 }
 
-String GetDHTSensor()
+String GetSensor()
 {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &root = jsonBuffer.createObject();
 
-	float humidity = roundf(dht.getHumidity());
-	float temperature = dht.getTemperature();
-
-	if (isnan(humidity) || isnan(temperature))
+	if (tempSensor == TempSensor_BME280)
 	{
-		root["humidity"] = "Not installed";
-		root["temperature"] = "Not installed";
+		root["temperature"] = bme.readTemperature();
+		root["humidity"] = bme.readHumidity();
+		root["pressure"] = bme.readPressure() / 100.0F;
+
+		if (temperatureUnit == TemperatureUnit_Fahrenheit)
+		{
+			root["temperature"] = CelsiusToFahrenheit(root["temperature"].as<float>());
+		}
+	}
+	else if (tempSensor == TempSensor_DHT)
+	{
+		root["temperature"] = dht.getTemperature();
+		root["humidity"] = roundf(dht.getHumidity());
+		root["pressure"] = "Not installed";
+
+		if (temperatureUnit == TemperatureUnit_Fahrenheit)
+		{
+			root["temperature"] = CelsiusToFahrenheit(root["temperature"].as<float>());
+		}
 	}
 	else
 	{
-		root["humidity"] = humidity;
-		root["temperature"] = temperature;
+		root["humidity"] = "Not installed";
+		root["temperature"] = "Not installed";
+		root["pressure"] = "Not installed";
 	}
+
 	String json;
 	root.printTo(json);
 
@@ -1035,6 +1171,20 @@ String GetLuxSensor()
 	JsonObject &root = jsonBuffer.createObject();
 
 	root["lux"] = currentLux;
+
+	String json;
+	root.printTo(json);
+
+	return json;
+}
+
+String GetBrightness()
+{
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject &root = jsonBuffer.createObject();
+
+	root["brightness_255"] = currentMatrixBrightness;
+	root["brightness"] = map(currentMatrixBrightness, 0, 255, 0, 100);
 
 	String json;
 	root.printTo(json);
@@ -1724,7 +1874,6 @@ int DayOfWeekFirstMonday(int OrigDayofWeek)
 
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
-
 void setup()
 {
 
@@ -1744,6 +1893,34 @@ void setup()
 	else
 	{
 		Serial.println(F("Failed to mount FS"));
+	}
+
+	// Init SetGPIO Array
+	for (int i = 0; i < SET_GPIO_SIZE; i++)
+	{
+		setGPIOReset[i].gpio = -1;
+		setGPIOReset[i].resetMillis = -1;
+	}
+
+	// Temp Sensors
+	twowire.begin(I2C_SDA, I2C_SCL);
+	if (bme.begin(BME280_ADDRESS_ALTERNATE, &twowire))
+	{
+		Log(F("Setup"), F("BME280 started"));
+		tempSensor = TempSensor_BME280;
+	}
+	else
+	{
+		dht.setup(DHT_PIN, DHTesp::DHT22);
+		if (!isnan(dht.getHumidity()) && !isnan(dht.getTemperature()))
+		{
+			Log(F("Setup"), F("DHT started"));
+			tempSensor = TempSensor_DHT;
+		}
+		else
+		{
+			Log(F("Setup"), F("No BME or DHT Sensor found"));
+		}
 	}
 
 	// Matix Type 1
@@ -1836,7 +2013,9 @@ void setup()
 
 	server.on(F("/api/screen"), HTTP_POST, HandleScreen);
 	server.on(F("/api/luxsensor"), HTTP_GET, HandleGetLuxSensor);
-	server.on(F("/api/dhtsensor"), HTTP_GET, HandleGetDHTSensor);
+	server.on(F("/api/brightness"), HTTP_GET, HandelGetBrightness);
+	server.on(F("/api/dhtsensor"), HTTP_GET, HandleGetDHTSensor); // Legancy
+	server.on(F("/api/sensor"), HTTP_GET, HandleGetSensor);
 	server.on(F("/api/matrixinfo"), HTTP_GET, HandleGetMatrixInfo);
 	//server.on(F("/api/soundinfo"), HTTP_GET, HandleGetSoundInfo);
 	server.on(F("/api/config"), HTTP_POST, HandleSetConfig);
@@ -1863,9 +2042,6 @@ void setup()
 		Log(F("Setup"), F("MQTT started"));
 	}
 
-	dht.setup(D1, DHTesp::DHT22);
-	Log(F("Setup"), F("DHT started"));
-
 	softSerial.begin(9600);
 	Log(F("Setup"), F("Software Serial started"));
 
@@ -1878,6 +2054,21 @@ void loop()
 
 	server.handleClient();
 	webSocket.loop();
+
+	// Reset GPIO based on the array, as far as something is present in the array.
+	for (int i = 0; i < SET_GPIO_SIZE; i++)
+	{
+		if (setGPIOReset[i].gpio != -1)
+		{
+			if (setGPIOReset[i].resetMillis <= millis())
+			{
+				Log(F("ResetSetGPIO"), "Pos: " + String(i) + ", GPIO: " + String(setGPIOReset[i].gpio) + ", Value: false");
+				digitalWrite(setGPIOReset[i].gpio, false);
+				setGPIOReset[i].gpio = -1;
+				setGPIOReset[i].resetMillis = -1;
+			}
+		}
+	}
 
 	if (mqttAktiv == true)
 	{
@@ -1910,11 +2101,7 @@ void loop()
 		}
 		else
 		{
-			if (!timeServerIP.fromString(ntpServer))
-			{
-				WiFi.hostByName(ntpServer.c_str(), timeServerIP);
-			}
-			Log(F("Sync TimeServer"), ntpServer + ": " + timeServerIP.toString() + " waiting for sync");
+			Log(F("Sync TimeServer"), ntpServer + " waiting for sync");
 			setSyncProvider(getNtpTime);
 		}
 	}
@@ -1938,10 +2125,10 @@ void loop()
 		}
 	}
 
-	if (millis() - sendDHTPrevMillis >= 3000)
+	if (millis() - sendSensorPrevMillis >= 3000)
 	{
-		sendDHTPrevMillis = millis();
-		SendDHT(false);
+		sendSensorPrevMillis = millis();
+		SendSensor(false);
 	}
 
 	if (millis() - sendInfoPrevMillis >= 3000)
@@ -2034,38 +2221,39 @@ void SendLDR(bool force)
 	oldGetLuxSensor = luxSensor;
 }
 
-void SendDHT(bool force)
+void SendSensor(bool force)
 {
 	if (force)
 	{
-		oldGetDHTSensor = "";
+		oldGetSensor = "";
 	}
 
-	String dhtSensor;
+	String Sensor;
 
 	// Prüfen ob die Abfrage des LuxSensor überhaupt erforderlich ist
 	if ((mqttAktiv == true && client.connected()) || (webSocket.connectedClients() > 0))
 	{
-		dhtSensor = GetDHTSensor();
+		Sensor = GetSensor();
 	}
 	// Prüfen ob über MQTT versendet werden muss
-	if (mqttAktiv == true && client.connected() && oldGetDHTSensor != dhtSensor)
+	if (mqttAktiv == true && client.connected() && oldGetSensor != Sensor)
 	{
-		client.publish((mqttMasterTopic + "dhtsensor").c_str(), dhtSensor.c_str(), true);
+		client.publish((mqttMasterTopic + "dhtsensor").c_str(), Sensor.c_str(), true); // Legancy
+		client.publish((mqttMasterTopic + "sensor").c_str(), Sensor.c_str(), true);
 	}
 	// Prüfen ob über Websocket versendet werden muss
-	if (webSocket.connectedClients() > 0 && oldGetDHTSensor != dhtSensor)
+	if (webSocket.connectedClients() > 0 && oldGetSensor != Sensor)
 	{
 		for (uint i = 0; i < sizeof websocketConnection / sizeof websocketConnection[0]; i++)
 		{
-			if (websocketConnection[i] == "/dash" || websocketConnection[i] == "/dht")
+			if (websocketConnection[i] == "/dash" || websocketConnection[i] == "/sensor")
 			{
-				webSocket.sendTXT(i, dhtSensor);
+				webSocket.sendTXT(i, Sensor);
 			}
 		}
 	}
 
-	oldGetDHTSensor = dhtSensor;
+	oldGetSensor = Sensor;
 }
 
 void SendConfig()
@@ -2092,7 +2280,7 @@ time_t getNtpTime()
 {
 	while (udp.parsePacket() > 0)
 		;
-	sendNTPpacket(timeServerIP);
+	sendNTPpacket(ntpServer);
 	uint32_t beginWait = millis();
 	while (millis() - beginWait < 1500)
 	{
@@ -2115,7 +2303,7 @@ time_t getNtpTime()
 	ntpRetryCounter++;
 	return 0;
 }
-void sendNTPpacket(IPAddress &address)
+void sendNTPpacket(String &address)
 {
 	memset(packetBuffer, 0, NTP_PACKET_SIZE);
 
@@ -2129,7 +2317,7 @@ void sendNTPpacket(IPAddress &address)
 	packetBuffer[14] = 49;
 	packetBuffer[15] = 52;
 
-	udp.beginPacket(address, 123);
+	udp.beginPacket(address.c_str(), 123);
 	udp.write(packetBuffer, NTP_PACKET_SIZE);
 	udp.endPacket();
 }
@@ -2148,7 +2336,8 @@ void Log(String function, String message)
 		{
 			if (websocketConnection[i] == "/dash")
 			{
-				webSocket.sendTXT(i, "{\"log\":{\"timeStamp\":\"" + timeStamp + "\",\"function\":\"" + function + "\",\"message\":\"" + message + "\"}}");
+				String payload = "{\"log\":{\"timeStamp\":\"" + timeStamp + "\",\"function\":\"" + function + "\",\"message\":\"" + message + "\"}}";
+				webSocket.sendTXT(i, payload);
 			}
 		}
 	}

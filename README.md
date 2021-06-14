@@ -1,19 +1,41 @@
 ![](https://raw.githubusercontent.com/o0shojo0o/ioBroker.pixelit/master/admin/pixelit.png)
 
-# PixelIt ![](https://github.com/o0shojo0o/PixelIt/workflows/Build/badge.svg) ![](https://github.com/o0shojo0o/PixelIt/workflows/Release/badge.svg)
+# PixelIt
+
+![](https://github.com/o0shojo0o/PixelIt/workflows/Build%20wemos_d1_mini32/badge.svg)
+![](https://github.com/o0shojo0o/PixelIt/workflows/Build%20ESP8266/badge.svg)
+![](https://github.com/o0shojo0o/PixelIt/workflows/Build%20d1_mini/badge.svg)  
+![](https://github.com/o0shojo0o/PixelIt/workflows/Release%20wemos_d1_mini32/badge.svg)
+![](https://github.com/o0shojo0o/PixelIt/workflows/Release%20ESP8266/badge.svg)
+![](https://github.com/o0shojo0o/PixelIt/workflows/Release%20d1_mini/badge.svg)
 
 The Pixel It is an ESP8266 / ESP32 (under construction) and WS2812B-LED based PixelArt display that is controlled and fed by a JSON API.
 At the moment there is also a Node-Red Node ([node-red-contrib-pixelit](https://flows.nodered.org/node/node-red-contrib-pixelit)) available to the JSON API
 
 [Docu](https://docs.bastelbunker.de/pixelit/) |
-[Forum](https://forum.bastelbunker.de/t/pixel-it) |
-[Blog](https://www.bastelbunker.de/pixel-it/)
+[Forum](https://github.com/o0shojo0o/PixelIt/discussions) |
+[Blog](https://www.bastelbunker.de/pixel-it/) |
+[PixelIt Web](https://pixelit.bastelbunker.de/PixelGallery) |
+[Telegram](https://t.me/pixelitdisplay) |
+[Discord](https://discord.gg/JHE9P9zczW)
 
 ## Changelog
 
 <!--
 ### **WORK IN PROGRESS**
 -->
+
+### 0.3.6 (2021-06-14)
+
+-   (o0shojo0o) added API endpoint `/api/brightness`
+-   (o0shojo0o) added config for temperature (°C or °F)
+-   (foorschtbar) added support for BME280
+-   (foorschtbar) moved most libs to common section
+
+### 0.3.5 (2021-05-26)
+
+-   (o0shojo0o) extension of the API with the call setGpio
+-   (o0shojo0o) download statistics added to the update page
 
 ### 0.3.4 (2021-05-20)
 
