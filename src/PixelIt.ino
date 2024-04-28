@@ -262,6 +262,45 @@ String optionsVersion = "";
 unsigned long lastScreenMessageMillis = 0;
 unsigned long lastGetBatteryPercent = 0;
 
+// ***********************************************************************************************************************************************
+// Standalone Screen Rotation Vars
+// Definiere die Zustände als Enum
+enum StandaloneScreen {
+  STANDALONE_SCREEN_CLOCK,
+  STANDALONE_SCREEN_TEMP,
+  STANDALONE_SCREEN_HUM,
+  STANDALONE_SCREEN_PRESSURE,
+  STANDALONE_SCREEN_GAS
+};
+
+// Struktur für ein StandaloneScreen-Objekt
+struct StandaloneScreenRotation {
+  StandaloneScreen name;
+  bool aktiv;
+};
+
+// Array zur Speicherung der StandaloneScreenRotations
+StandaloneScreenRotation standaloneScreenRotation[] = {
+  {STANDALONE_SCREEN_CLOCK, true},
+  {STANDALONE_SCREEN_TEMP, true},
+  {STANDALONE_SCREEN_HUM, true},
+  {STANDALONE_SCREEN_PRESSURE, false},
+  {STANDALONE_SCREEN_GAS, false}
+};
+
+// Anzahl der StandaloneScreenRotations
+const int STANDALONE_SCREEN_ROTATION_SIZE = sizeof(standaloneScreenRotation) / sizeof(standaloneScreenRotation[0]);
+
+// Aktuelle StandaloneScreenRotation
+StandaloneScreenRotation StandaloneScreenRotationCurrentScreen = {STANDALONE_SCREEN_CLOCK, true};
+
+// Variable, um den ersten Durchlauf der loop() zu verfolgen
+bool StandaloneScreenRotationFirstRun = true;
+unsigned long standaloneScreenRotationPreviousTime = 0;
+const long StandaloneScreenRotationInterval = 6; // Interval in Sekunden
+
+
+// ***********************************************************************************************************************************************
 // Bmp Vars
 uint16_t bmpArray[64];
 bool withBMP = false;
@@ -291,6 +330,7 @@ uint clockAutoFallbackAnimation = 1;
 uint clockSwitchSec = 7;
 uint clockCounterClock = 0;
 uint clockCounterDate = 0;
+bool clockDateFinish = false;
 float clockTimeZone = 1;
 time_t clockLastUpdate;
 uint8_t clockColorR = 255, clockColorG = 255, clockColorB = 255;
@@ -2547,7 +2587,7 @@ void DrawClock(bool fromJSON)
         }
     }
 
-    if (!clockSwitchAktiv || (clockSwitchAktiv && clockCounterClock <= clockSwitchSec))
+    if (!clockSwitchAktiv || (clockSwitchAktiv && clockCounterClock <= clockSwitchSec)) // Show Clock
     {
         if (clockSwitchAktiv)
         {
@@ -2565,7 +2605,7 @@ void DrawClock(bool fromJSON)
                 DrawTextCenter(String(date), clockFontChoice, clockColorR, clockColorG, clockColorB, 0, 1);
                 FadeIn(30);
             }
-            else
+            else                                                                        //Fade Clock to Date
             {
                 int counter = 0;
                 while (counter <= 6) // vertical animate
@@ -2595,7 +2635,7 @@ void DrawClock(bool fromJSON)
             xPosTime = 3;
         }
     }
-    else
+    else                                                    // Show Date
     {
         clockCounterDate++;
 
@@ -2611,7 +2651,7 @@ void DrawClock(bool fromJSON)
                 DrawTextCenter(String(time), 2, clockColorR, clockColorG, clockColorB, 0, 1);
                 FadeIn(30);
             }
-            else
+            else                                            //Fade Date to Clock
             {
                 int counter = 0;
                 while (counter <= 6) // vertical animate
@@ -4098,26 +4138,138 @@ void loop()
         }
     }
 
-    if (clockAktiv && now() != clockLastUpdate)
-    {
-        if (timeStatus() == timeNotSet && ntpTimeOut <= millis())
-        {
-            if (ntpRetryCounter >= NTP_MAX_RETRYS)
-            {
-                ntpTimeOut = (millis() + (NTP_TIMEOUT_SEC * 1000));
-                ntpRetryCounter = 0;
-                Log(F("Sync TimeServer"), "sync timeout for " + String(NTP_TIMEOUT_SEC) + " seconds!");
-            }
-            else
-            {
-                Log(F("Sync TimeServer"), ntpServer + " waiting for sync");
-                setSyncProvider(getNtpTime);
-            }
-        }
-        clockLastUpdate = now();
-        DrawClock(false);
-    }
+    // Aktuelle Zeit ermitteln
+    unsigned long currentTime = now();
+    
+    // Überprüfe, ob das Intervall abgelaufen ist
+    if (currentTime - standaloneScreenRotationPreviousTime >= StandaloneScreenRotationInterval) {
+        // Zeitintervall aktualisieren
+        standaloneScreenRotationPreviousTime = currentTime;
 
+        // Überprüfe, ob dies der erste Durchlauf ist und starte mit dem ersten Screen (clock)
+        if (StandaloneScreenRotationFirstRun) {           
+            StandaloneScreenRotationFirstRun = false;
+        } else {
+            // Zustandsübergang zum nächsten Screen
+            int nextScreenIndex = (StandaloneScreenRotationCurrentScreen.name + 1) % STANDALONE_SCREEN_ROTATION_SIZE;
+            while (!standaloneScreenRotation[nextScreenIndex].aktiv) {
+                nextScreenIndex = (nextScreenIndex + 1) % STANDALONE_SCREEN_ROTATION_SIZE;
+            }
+            StandaloneScreenRotationCurrentScreen = standaloneScreenRotation[nextScreenIndex];
+
+
+            switch(StandaloneScreenRotationCurrentScreen.name) {
+                case STANDALONE_SCREEN_TEMP:
+                {
+                    Log(F("screenRotation"), F("Current Screen: Temp"));  
+
+                    //char json[] = "{ \"text\": { \"textString\": \"Temp\", \"scrollText\": \"auto\", \"bigFont\": false, \"centerText\": false, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 0, \"y\": 1 } }}";
+                    char json[] = "{\"bitmap\": { \"data\": [0,0,65535,65535,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,33808,65535,64170,65535,33808,0,0,0,65535,64853,63488,64853,65535,0,0,0,65535,63488,63488,63488,65535,0,0,0,65535,64853,63488,64853,65535,0,0,0,33808,65535,65535,65535,33808,0,0], \"position\": { \"x\": 0, \"y\": 0 }, \"size\": { \"width\": 8, \"height\": 8 }}, \"text\": { \"textString\": \"-22.5\", \"scrollText\": \"false\", \"bigFont\": false, \"centerText\": true, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 7, \"y\": 1 } }}";
+                    
+                    DynamicJsonBuffer jsonBuffer2;
+                    JsonObject& object = jsonBuffer2.parseObject(json);  
+
+                
+
+                    if (object.success())
+                    {    
+                        String debug;
+                        object.printTo(debug); 
+                        Log(F("screenRotation"),   debug);
+                        CreateFrames(object, clockSwitchSec);
+                    }
+                    else
+                    {
+                        Log(F("screenRotation"), F("json not goood"));  
+                    }                    
+                    
+                    clockAktiv = true;
+                    break;                
+                }  
+                case STANDALONE_SCREEN_HUM:
+                {
+                    Log(F("screenRotation"), F("Current Screen: Hum"));
+
+                    //char json[] = "{ \"text\": { \"textString\": \"Temp\", \"scrollText\": \"auto\", \"bigFont\": false, \"centerText\": false, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 0, \"y\": 1 } }}";
+                    char json[] = "{\"bitmap\": { \"data\": [0,0,0,0,0,0,0,0,0,0,21855,21855,0,0,0,0,0,0,21855,21855,0,0,0,0,0,21855,1055,1055,21855,0,0,0,21855,1055,1055,1055,1055,21855,0,0,21855,1055,1055,1055,1055,21855,0,0,21855,1055,1055,1055,1055,21855,0,0,0,21855,21855,21855,21855,0,0,0], \"position\": { \"x\": 0, \"y\": 0 }, \"size\": { \"width\": 8, \"height\": 8 }}, \"text\": { \"textString\": \"72.3\", \"scrollText\": \"false\", \"bigFont\": false, \"centerText\": true, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 7, \"y\": 1 } }}";
+                    
+                    DynamicJsonBuffer jsonBuffer2;
+                    JsonObject& object = jsonBuffer2.parseObject(json);                  
+
+                    if (object.success())
+                    {    
+                        String debug;
+                        object.printTo(debug); 
+                        Log(F("screenRotation"),   debug);
+                        CreateFrames(object, clockSwitchSec);
+                    }
+                    else
+                    {
+                        Log(F("screenRotation"), F("json not goood"));  
+                    }        
+                
+                    clockAktiv = true;
+                    break;
+                }
+                case STANDALONE_SCREEN_PRESSURE:    //Preservation
+                {
+                    Log(F("screenRotation"), F("Current Screen: Pressure"));
+                    clockAktiv = true;
+                    break;
+                }
+                case STANDALONE_SCREEN_GAS:         //Preservation
+                {
+                    Log(F("screenRotation"), F("Current Screen: Gas"));
+                    clockAktiv = true;
+                    break;
+                }
+                default:
+                    Serial.println(".............");
+                    scrollTextAktivLoop = false;
+                    animateBMPAktivLoop = false;
+                    clockAktiv = true;
+
+                    break;
+            }
+        
+        }
+    }  
+
+    
+     // Zustandsübergang für den Bildschirm "CLOCK"
+    if (StandaloneScreenRotationCurrentScreen.name == STANDALONE_SCREEN_CLOCK && StandaloneScreenRotationCurrentScreen.aktiv) {
+        // Hier können die spezifischen Aktionen für den Bildschirm "CLOCK" durchgeführt werden
+        //Serial.println("Clock Screen is active");        
+        if (clockAktiv && now() != clockLastUpdate){  
+                Log(F("loop Time"), String(clockCounterClock));
+                Log(F("loop Date"), String(clockCounterDate));
+
+                    if (timeStatus() == timeNotSet && ntpTimeOut <= millis())
+                    {
+                        if (ntpRetryCounter >= NTP_MAX_RETRYS)
+                        {
+                          ntpTimeOut = (millis() + (NTP_TIMEOUT_SEC * 1000));
+                                ntpRetryCounter = 0;
+                                Log(F("Sync TimeServer"), "sync timeout for " + String(NTP_TIMEOUT_SEC) + " seconds!");
+                        }
+                        else
+                        {
+                                Log(F("Sync TimeServer"), ntpServer + " waiting for sync");
+                                setSyncProvider(getNtpTime);
+                        }
+                    }
+                    clockLastUpdate = now();
+                    Log(F("loop Date/Clock Finish"), F("DrawClock"));
+                    DrawClock(false);
+
+                    
+                Log(F("loop Date/Clock Finish"), String(clockDateFinish));
+        }
+        
+    } else {
+        clockCounterClock = 0;
+        clockCounterDate = 0;
+    }
     // Get Lunx and control brightness
     if (millis() - getLuxPrevMillis >= SEND_LUX_INTERVAL)
     {
