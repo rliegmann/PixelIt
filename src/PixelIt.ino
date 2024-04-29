@@ -65,7 +65,7 @@
 #define UPDATE_BATTERY_LEVEL_INTERVAL 1000 * 30     // 30 Seconds
 
 // Version config - will be replaced by build piple with Git-Tag!
-#define VERSION "0.0.0-beta" // will be replaced by build piple with Git-Tag!
+#define VERSION "feature-standalone-rotation" // will be replaced by build piple with Git-Tag!
 
 // Workaround for String in defines
 #define XSTR(x) #x
@@ -277,15 +277,17 @@ enum StandaloneScreen {
 struct StandaloneScreenRotation {
   StandaloneScreen name;
   bool aktiv;
+  String color;
+  String switchAnimation;
 };
 
 // Array zur Speicherung der StandaloneScreenRotations
 StandaloneScreenRotation standaloneScreenRotation[] = {
   {STANDALONE_SCREEN_CLOCK, true},
-  {STANDALONE_SCREEN_TEMP, true},
-  {STANDALONE_SCREEN_HUM, true},
-  {STANDALONE_SCREEN_PRESSURE, false},
-  {STANDALONE_SCREEN_GAS, false}
+  {STANDALONE_SCREEN_TEMP, true, "#FFFFFF", "fade"},
+  {STANDALONE_SCREEN_HUM, true, "#FFFFFF", "fade"},
+  {STANDALONE_SCREEN_PRESSURE, false, "#FFFFFF", "fade"},
+  {STANDALONE_SCREEN_GAS, false, "#FFFFFF", "fade"}
 };
 
 // Anzahl der StandaloneScreenRotations
@@ -298,7 +300,12 @@ StandaloneScreenRotation StandaloneScreenRotationCurrentScreen = {STANDALONE_SCR
 bool StandaloneScreenRotationFirstRun = true;
 unsigned long standaloneScreenRotationPreviousTime = 0;
 const long StandaloneScreenRotationInterval = 6; // Interval in Sekunden
+bool StandaloneScreenRotationEnable = true;
+bool StandaloneScreenRotationAktiv = true;
+uint StandaloneScreenRotationAutoFallbackTime = 15;
 
+
+#include <RotationScreen.h>
 
 // ***********************************************************************************************************************************************
 // Bmp Vars
@@ -1008,7 +1015,7 @@ void HandleScreen()
     {
         server.send(200, F("application/json"), F("{\"response\":\"OK\"}"));
         Log(F("HandleScreen"), "Incoming JSON length: " + String(json.measureLength()));
-        CreateFrames(json);
+        CreateFrames(json, false);
     }
     else
     {
@@ -1216,7 +1223,7 @@ void callback(char *topic, byte *payload, unsigned int length)
         }
         if (channel.equals("setScreen"))
         {
-            CreateFrames(json);
+            CreateFrames(json, false);
         }
         else if (channel.equals("getLuxsensor"))
         {
@@ -1302,7 +1309,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
 
             if (json.containsKey("setScreen"))
             {
-                CreateFrames(json["setScreen"], forcedDuration);
+                CreateFrames(json["setScreen"], false, forcedDuration);
             }
             else if (json.containsKey("setConfig"))
             {
@@ -1350,12 +1357,12 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
     }
 }
 
-void CreateFrames(JsonObject &json)
+void CreateFrames(JsonObject &json, bool isInternal)
 {
-    CreateFrames(json, 0);
+    CreateFrames(json, isInternal, 0);
 }
 
-void CreateFrames(JsonObject &json, int forceDuration)
+void CreateFrames(JsonObject &json, bool isInternal, int forceDuration)
 {
     bool sendMatrixInfo = false;
 
@@ -1384,7 +1391,7 @@ void CreateFrames(JsonObject &json, int forceDuration)
             {
                 DynamicJsonBuffer jsonBuffer;
                 JsonObject &tmpJson = jsonBuffer.parseObject(currentScreenJsonBuffer);
-                CreateFrames(tmpJson);
+                CreateFrames(tmpJson, true);
                 return;
             }
         }
@@ -1519,6 +1526,10 @@ void CreateFrames(JsonObject &json, int forceDuration)
         {
             lastScreenMessageMillis = millis();
             clockAktiv = false;
+            Log( F("CreateFrame is Internal: "), (String)isInternal) ;
+            if (!isInternal) {                
+                StandaloneScreenRotationAktiv = false;
+            }
             scrollTextAktivLoop = false;
             animateBMPAktivLoop = false;
         }
@@ -4094,7 +4105,7 @@ void loop()
     }
 
     // Clock Auto Fallback
-    if (!sleepMode && ((clockAutoFallbackActive && !clockAktiv && millis() - lastScreenMessageMillis >= (clockAutoFallbackTime * 1000)) || forceClock))
+    if (!sleepMode && !StandaloneScreenRotationEnable && ((clockAutoFallbackActive && !clockAktiv && millis() - lastScreenMessageMillis >= (clockAutoFallbackTime * 1000)) || forceClock))
     {
         forceClock = false;
         scrollTextAktivLoop = false;
@@ -4138,11 +4149,58 @@ void loop()
         }
     }
 
+    // StandaloneScreenRotation Auto Fallback
+    if (!sleepMode && ((!StandaloneScreenRotationAktiv && millis() - lastScreenMessageMillis >= (StandaloneScreenRotationAutoFallbackTime * 1000)) ))
+    {
+        Log(F("Standalone Fallback"), F("Fire"));  
+        scrollTextAktivLoop = false;
+        animateBMPAktivLoop = false;
+
+        int performWipe = 0;
+
+        switch (clockAutoFallbackAnimation)
+        {
+        case 1:
+        case 2:
+        case 3:
+            performWipe = clockAutoFallbackAnimation;
+            break;
+        case 4:
+            performWipe = (millis() % 3) + 1;
+            break;
+        default:;
+        }
+
+        if (performWipe == 1)
+        {
+            FadeOut();
+        }
+        else if (performWipe == 2)
+        {
+            ColoredBarWipe();
+        }
+        else if (performWipe == 3)
+        {
+            ZigZagWipe(clockColorR, clockColorG, clockColorB);
+        }
+        StandaloneScreenRotationAktiv = true;          
+        StandaloneScreenRotationFirstRun = true;     
+        clockAktiv = true; 
+        clockCounterClock = 0;
+        clockCounterDate = 0;
+        StandaloneScreenRotationCurrentScreen = standaloneScreenRotation[0];
+
+        if (performWipe != 0)
+        {
+            FadeIn();
+        }
+    }
+
     // Aktuelle Zeit ermitteln
     unsigned long currentTime = now();
     
     // Überprüfe, ob das Intervall abgelaufen ist
-    if (currentTime - standaloneScreenRotationPreviousTime >= StandaloneScreenRotationInterval) {
+    if (StandaloneScreenRotationAktiv && (currentTime - standaloneScreenRotationPreviousTime >= StandaloneScreenRotationInterval)) {
         // Zeitintervall aktualisieren
         standaloneScreenRotationPreviousTime = currentTime;
 
@@ -4150,13 +4208,15 @@ void loop()
         if (StandaloneScreenRotationFirstRun) {           
             StandaloneScreenRotationFirstRun = false;
         } else {
-            // Zustandsübergang zum nächsten Screen
+            // Zustandsübergang zum nächsten Screen           
             int nextScreenIndex = (StandaloneScreenRotationCurrentScreen.name + 1) % STANDALONE_SCREEN_ROTATION_SIZE;
             while (!standaloneScreenRotation[nextScreenIndex].aktiv) {
                 nextScreenIndex = (nextScreenIndex + 1) % STANDALONE_SCREEN_ROTATION_SIZE;
             }
             StandaloneScreenRotationCurrentScreen = standaloneScreenRotation[nextScreenIndex];
 
+            DynamicJsonBuffer jsonBufferSensor;
+            JsonObject& SensorData = jsonBufferSensor.parseObject(GetSensor());
 
             switch(StandaloneScreenRotationCurrentScreen.name) {
                 case STANDALONE_SCREEN_TEMP:
@@ -4164,26 +4224,32 @@ void loop()
                     Log(F("screenRotation"), F("Current Screen: Temp"));  
 
                     //char json[] = "{ \"text\": { \"textString\": \"Temp\", \"scrollText\": \"auto\", \"bigFont\": false, \"centerText\": false, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 0, \"y\": 1 } }}";
-                    char json[] = "{\"bitmap\": { \"data\": [0,0,65535,65535,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,33808,65535,64170,65535,33808,0,0,0,65535,64853,63488,64853,65535,0,0,0,65535,63488,63488,63488,65535,0,0,0,65535,64853,63488,64853,65535,0,0,0,33808,65535,65535,65535,33808,0,0], \"position\": { \"x\": 0, \"y\": 0 }, \"size\": { \"width\": 8, \"height\": 8 }}, \"text\": { \"textString\": \"-22.5\", \"scrollText\": \"false\", \"bigFont\": false, \"centerText\": true, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 7, \"y\": 1 } }}";
+                    String temp = SensorData.get<String>("temperature");
+                    //char json[] = "{\"bitmap\": { \"data\": [0,0,65535,65535,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,33808,65535,64170,65535,33808,0,0,0,65535,64853,63488,64853,65535,0,0,0,65535,63488,63488,63488,65535,0,0,0,65535,64853,63488,64853,65535,0,0,0,33808,65535,65535,65535,33808,0,0], \"position\": { \"x\": 0, \"y\": 0 }, \"size\": { \"width\": 8, \"height\": 8 }}, \"text\": { \"textString\": \""+temp+"\", \"scrollText\": \"false\", \"bigFont\": false, \"centerText\": true, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 7, \"y\": 1 } }}";
+                    String json = "{\"bitmap\": { \"data\": [0,0,65535,65535,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,33808,65535,64170,65535,33808,0,0,0,65535,64853,63488,64853,65535,0,0,0,65535,63488,63488,63488,65535,0,0,0,65535,64853,63488,64853,65535,0,0,0,33808,65535,65535,65535,33808,0,0], \"position\": { \"x\": 0, \"y\": 0 }, \"size\": { \"width\": 8, \"height\": 8 }}, \"text\": { \"textString\": \"";
+                    json = json +temp;
+                    json = json + "\", \"scrollText\": \"false\", \"bigFont\": false, \"centerText\": true, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 7, \"y\": 1 } },";
+                    json = json + "\"switchAnimation\": { \"aktiv\": true, \"animation\": \"fade\" }}";
                     
                     DynamicJsonBuffer jsonBuffer2;
                     JsonObject& object = jsonBuffer2.parseObject(json);  
-
-                
+                    //StaticJsonBuffer<450> jsonBuffer;
+                    //JsonObject& object = jsonBuffer.createObject();
+                    //BuildStandaloneScreenRotationJSON(object, StandaloneScreenRotationCurrentScreen, temp);
 
                     if (object.success())
                     {    
                         String debug;
                         object.printTo(debug); 
                         Log(F("screenRotation"),   debug);
-                        CreateFrames(object, clockSwitchSec);
+                        CreateFrames(object, true);
                     }
                     else
                     {
                         Log(F("screenRotation"), F("json not goood"));  
                     }                    
                     
-                    clockAktiv = true;
+                    //clockAktiv = true;
                     break;                
                 }  
                 case STANDALONE_SCREEN_HUM:
@@ -4201,14 +4267,14 @@ void loop()
                         String debug;
                         object.printTo(debug); 
                         Log(F("screenRotation"),   debug);
-                        CreateFrames(object, clockSwitchSec);
+                        CreateFrames(object, true);
                     }
                     else
                     {
                         Log(F("screenRotation"), F("json not goood"));  
                     }        
                 
-                    clockAktiv = true;
+                    //lockAktiv = true;
                     break;
                 }
                 case STANDALONE_SCREEN_PRESSURE:    //Preservation
