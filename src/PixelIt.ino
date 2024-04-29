@@ -4218,24 +4218,17 @@ void loop()
             DynamicJsonBuffer jsonBufferSensor;
             JsonObject& SensorData = jsonBufferSensor.parseObject(GetSensor());
 
+            StaticJsonBuffer<1200> jsonBuffer;
+            JsonObject& object = jsonBuffer.createObject();
+
             switch(StandaloneScreenRotationCurrentScreen.name) {
                 case STANDALONE_SCREEN_TEMP:
                 {
                     Log(F("screenRotation"), F("Current Screen: Temp"));  
 
-                    //char json[] = "{ \"text\": { \"textString\": \"Temp\", \"scrollText\": \"auto\", \"bigFont\": false, \"centerText\": false, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 0, \"y\": 1 } }}";
-                    String temp = SensorData.get<String>("temperature");
-                    //char json[] = "{\"bitmap\": { \"data\": [0,0,65535,65535,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,33808,65535,64170,65535,33808,0,0,0,65535,64853,63488,64853,65535,0,0,0,65535,63488,63488,63488,65535,0,0,0,65535,64853,63488,64853,65535,0,0,0,33808,65535,65535,65535,33808,0,0], \"position\": { \"x\": 0, \"y\": 0 }, \"size\": { \"width\": 8, \"height\": 8 }}, \"text\": { \"textString\": \""+temp+"\", \"scrollText\": \"false\", \"bigFont\": false, \"centerText\": true, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 7, \"y\": 1 } }}";
-                    String json = "{\"bitmap\": { \"data\": [0,0,65535,65535,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,0,65535,64170,65535,0,0,0,0,33808,65535,64170,65535,33808,0,0,0,65535,64853,63488,64853,65535,0,0,0,65535,63488,63488,63488,65535,0,0,0,65535,64853,63488,64853,65535,0,0,0,33808,65535,65535,65535,33808,0,0], \"position\": { \"x\": 0, \"y\": 0 }, \"size\": { \"width\": 8, \"height\": 8 }}, \"text\": { \"textString\": \"";
-                    json = json +temp;
-                    json = json + "\", \"scrollText\": \"false\", \"bigFont\": false, \"centerText\": true, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 7, \"y\": 1 } },";
-                    json = json + "\"switchAnimation\": { \"aktiv\": true, \"animation\": \"fade\" }}";
-                    
-                    DynamicJsonBuffer jsonBuffer2;
-                    JsonObject& object = jsonBuffer2.parseObject(json);  
-                    //StaticJsonBuffer<450> jsonBuffer;
-                    //JsonObject& object = jsonBuffer.createObject();
-                    //BuildStandaloneScreenRotationJSON(object, StandaloneScreenRotationCurrentScreen, temp);
+                    String temp = SensorData.get<String>("temperature");                    
+                    int bitmap[] = {0,65535,65535,65535,0,0,0,0,0,65535,63488,65535,0,0,0,0,0,65535,63488,65535,0,0,0,0,0,65535,63488,65535,0,0,0,0,65535,63488,63488,63488,65535,0,0,0,65535,63488,63488,63488,65535,0,0,0,65535,63488,63488,63488,65535,0,0,0,0,65535,65535,65535,0,0,0,0,    -1};   // Das -1 definiert das Ende des Bitmaps für die Funktion BuildStandaloneScreenRotationJSON
+                    BuildStandaloneScreenRotationJSON(object, StandaloneScreenRotationCurrentScreen, temp, bitmap);
 
                     if (object.success())
                     {    
@@ -4256,11 +4249,9 @@ void loop()
                 {
                     Log(F("screenRotation"), F("Current Screen: Hum"));
 
-                    //char json[] = "{ \"text\": { \"textString\": \"Temp\", \"scrollText\": \"auto\", \"bigFont\": false, \"centerText\": false, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 0, \"y\": 1 } }}";
-                    char json[] = "{\"bitmap\": { \"data\": [0,0,0,0,0,0,0,0,0,0,21855,21855,0,0,0,0,0,0,21855,21855,0,0,0,0,0,21855,1055,1055,21855,0,0,0,21855,1055,1055,1055,1055,21855,0,0,21855,1055,1055,1055,1055,21855,0,0,21855,1055,1055,1055,1055,21855,0,0,0,21855,21855,21855,21855,0,0,0], \"position\": { \"x\": 0, \"y\": 0 }, \"size\": { \"width\": 8, \"height\": 8 }}, \"text\": { \"textString\": \"72.3\", \"scrollText\": \"false\", \"bigFont\": false, \"centerText\": true, \"scrollTextDelay\": 40, \"hexColor\": \"#FFFFFF\", \"position\": {\"x\": 7, \"y\": 1 } }}";
-                    
-                    DynamicJsonBuffer jsonBuffer2;
-                    JsonObject& object = jsonBuffer2.parseObject(json);                  
+                    String hum = SensorData.get<String>("humidity");                   
+                    int bitmap[] = {0,0,0,0,0,0,0,0,0,0,21855,21855,0,0,0,0,0,0,21855,21855,0,0,0,0,0,21855,1055,1055,21855,0,0,0,21855,1055,1055,1055,1055,21855,0,0,21855,1055,1055,1055,1055,21855,0,0,21855,1055,1055,1055,1055,21855,0,0,0,21855,21855,21855,21855,0,0,0,    -1};   // Das -1 definiert das Ende des Bitmaps für die Funktion BuildStandaloneScreenRotationJSON
+                    BuildStandaloneScreenRotationJSON(object, StandaloneScreenRotationCurrentScreen, hum, bitmap);              
 
                     if (object.success())
                     {    
